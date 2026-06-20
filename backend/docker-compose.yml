@@ -1,0 +1,47 @@
+# Локальный вариант только для backend/ (postgres + api).
+# Полный стек (БД + API + фронт): из корня репозитория — docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: photoshoot
+      POSTGRES_PASSWORD: photoshoot
+      POSTGRES_DB: photoshoot
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U photoshoot -d photoshoot']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      DATABASE_SYNCHRONIZE: 'true'
+      CORS_ORIGIN: http://localhost:3000,http://192.168.1.177:3000
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: photoshoot
+      DATABASE_PASSWORD: photoshoot
+      DATABASE_NAME: photoshoot
+      JWT_SECRET: ${JWT_SECRET:-ffff3344-wwww-wwqewqe-eee-ewqeq-ewqe-ewqewqew}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-180d}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  uploads_data:
