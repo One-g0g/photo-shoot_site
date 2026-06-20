@@ -1,0 +1,71 @@
+# Алиас для старого docker-compose v1 (читает этот файл по умолчанию)
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-photoshoot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-photoshoot}
+      POSTGRES_DB: ${POSTGRES_DB:-photoshoot}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U photoshoot -d photoshoot']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      DATABASE_SYNCHRONIZE: 'true'
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-photoshoot}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-photoshoot}
+      DATABASE_NAME: ${POSTGRES_DB:-photoshoot}
+      JWT_SECRET: ${JWT_SECRET:-ffff3344-wwww-wwqewqe-eee-ewqeq-ewqe-ewqewqew}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-180d}
+      CORS_ORIGIN: ${PUBLIC_SITE_URL:-http://localhost:3000},http://localhost:3000
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  front:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_API_URL: /api
+        NUXT_PUBLIC_API_ORIGIN: ${PUBLIC_SITE_URL:-http://localhost:3000}
+        NUXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+        NUXT_API_ORIGIN_INTERNAL: http://api:3001
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      NUXT_PUBLIC_API_URL: /api
+      NUXT_PUBLIC_API_ORIGIN: ${PUBLIC_SITE_URL:-http://localhost:3000}
+      NUXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+      NUXT_API_ORIGIN_INTERNAL: http://api:3001
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  uploads_data:
